@@ -1,0 +1,382 @@
+[
+  {
+    "id": "aaj-tak",
+    "name": "Aaj Tak",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Aaj_Tak_logo.png/512px-Aaj_Tak_logo.png",
+    "streamUrl": "https://aajtaklive-amd.akamaized.net/hls/live/2014416/aajtak/aajtaklive/live_720p/chunks.m3u8",
+    "network": "TV Today Network",
+    "isHD": true
+  },
+  {
+    "id": "dd-india",
+    "name": "DD India",
+    "category": "News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/DD_India_logo.svg/512px-DD_India_logo.svg.png",
+    "streamUrl": "https://d3eyhgoylams0m.cloudfront.net/v1/manifest/93ce20f0f52760bf38be911ff4c91ed02aa2fd92/ed7bd2c7-8d10-4051-b397-2f6b90f99acb/2e9e32a4-c9f7-49c3-96d6-c4e3660c7e3f/2.m3u8",
+    "network": "Prasar Bharati",
+    "isHD": true
+  },
+  {
+    "id": "ndtv-india",
+    "name": "NDTV India",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/NDTV_logo.svg/512px-NDTV_logo.svg.png",
+    "streamUrl": "https://ndtvindiaelemarchana.akamaized.net/hls/live/2003679/ndtvindia/master.m3u8",
+    "network": "NDTV Group",
+    "isHD": true
+  },
+  {
+    "id": "ndtv-24x7",
+    "name": "NDTV 24x7",
+    "category": "News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/NDTV_logo.svg/512px-NDTV_logo.svg.png",
+    "streamUrl": "https://ndtv24x7elemarchana.akamaized.net/hls/live/2003678/ndtv24x7/master.m3u8",
+    "network": "NDTV Group",
+    "isHD": true
+  },
+  {
+    "id": "india-today",
+    "name": "India Today",
+    "category": "News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/India_Today_Logo.svg/512px-India_Today_Logo.svg.png",
+    "streamUrl": "https://indiatodaylive.akamaized.net/hls/live/2014320/indiatoday/indiatodaylive/playlist.m3u8",
+    "network": "TV Today Network",
+    "isHD": true
+  },
+  {
+    "id": "abp-news",
+    "name": "ABP News",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/ABP_News_logo.svg/512px-ABP_News_logo.svg.png",
+    "streamUrl": "https://abplivetv.pc.cdn.bitgravity.com/httppush/abp_livetv/abp_abpnews/master.m3u8",
+    "network": "ABP Network",
+    "isHD": true
+  },
+  {
+    "id": "republic-bharat",
+    "name": "Republic Bharat",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Republic_Bharat_logo.svg/512px-Republic_Bharat_logo.svg.png",
+    "streamUrl": "https://vg-republictvlive.akamaized.net/v1/master/611d79b11b77e2f571934fd80ca1413453772ac7/vglive-sk-275673/main.m3u8",
+    "network": "Republic Media",
+    "isHD": true
+  },
+  {
+    "id": "sansad-tv",
+    "name": "Sansad TV",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Sansad_TV_logo.svg/512px-Sansad_TV_logo.svg.png",
+    "streamUrl": "https://hls.media.nic.in/hls/live/lstv/lstv.m3u8",
+    "network": "Parliament of India",
+    "isHD": true
+  },
+  {
+    "id": "tv9-bharatvarsh",
+    "name": "TV9 Bharatvarsh",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/c/c8/TV9_Bharatvarsh.png",
+    "streamUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9hinjzgtpe/liveabr/playlist.m3u8",
+    "network": "TV9 Network",
+    "isHD": true
+  },
+  {
+    "id": "dd-news",
+    "name": "DD News",
+    "category": "News",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/1/14/DD_News_logo.svg/512px-DD_News_logo.svg.png",
+    "streamUrl": "https://d3eyhgoylams0m.cloudfront.net/v1/manifest/93ce20f0f52760bf38be911ff4c91ed02aa2fd92/ed7bd2c7-8d10-4051-b397-2f6b90f99acb/3229f90b-d11c-4a3f-99f3-878c18a33a5c/2.m3u8",
+    "network": "Doordarshan",
+    "isHD": true
+  },
+  {
+    "id": "dangal-tv",
+    "name": "Dangal TV",
+    "category": "Entertainment",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/b/b7/Dangal_TV_Logo.png",
+    "streamUrl": "https://live-dangal.akamaized.net/liveabr/playlist.m3u8",
+    "network": "Enterr10 Television",
+    "isHD": true
+  },
+  {
+    "id": "shemaroo-tv",
+    "name": "Shemaroo TV",
+    "category": "Entertainment",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/2/29/Shemaroo_TV_logo.png",
+    "streamUrl": "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg00864-shemarooenterta-shemarootv-samsungin/playlist.m3u8",
+    "network": "Shemaroo",
+    "isHD": true
+  },
+  {
+    "id": "b4u-movies",
+    "name": "B4U Movies",
+    "category": "Movies",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3f/B4U_Movies_logo.svg/512px-B4U_Movies_logo.svg.png",
+    "streamUrl": "https://cdnb4u.wiseplayout.com/B4U_Movies/master.m3u8",
+    "network": "B4U Network",
+    "isHD": true
+  },
+  {
+    "id": "b4u-kadak",
+    "name": "B4U Kadak",
+    "category": "Movies",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3f/B4U_Movies_logo.svg/512px-B4U_Movies_logo.svg.png",
+    "streamUrl": "https://cdnb4u.wiseplayout.com/B4U_Kadak/master.m3u8",
+    "network": "B4U Network",
+    "isHD": true
+  },
+  {
+    "id": "shemaroo-bollywood",
+    "name": "Shemaroo Bollywood",
+    "category": "Movies",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/2/29/Shemaroo_TV_logo.png",
+    "streamUrl": "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg00864-shemarooenterta-shemaroobollywood-samsungin/playlist.m3u8",
+    "network": "Shemaroo",
+    "isHD": true
+  },
+  {
+    "id": "9xm",
+    "name": "9XM",
+    "category": "Music",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/8/87/9XM_logo.svg/512px-9XM_logo.svg.png",
+    "streamUrl": "https://d2q8p4pe5spbak.cloudfront.net/bpk-tv/9XM/9XM.isml/index.m3u8",
+    "network": "9X Media",
+    "isHD": true
+  },
+  {
+    "id": "mastiii",
+    "name": "Mastiii",
+    "category": "Music",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/6/62/Mastiii_logo.png",
+    "streamUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/mastiii/master.m3u8",
+    "network": "SAB Group",
+    "isHD": true
+  },
+  {
+    "id": "b4u-music",
+    "name": "B4U Music",
+    "category": "Music",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/c/c9/B4U_Music_logo.svg/512px-B4U_Music_logo.svg.png",
+    "streamUrl": "https://cdnb4u.wiseplayout.com/B4U_Music/master.m3u8",
+    "network": "B4U Network",
+    "isHD": true
+  },
+  {
+    "id": "9x-jalwa",
+    "name": "9X Jalwa",
+    "category": "Music",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/b/b5/9X_Jalwa_Logo.png",
+    "streamUrl": "https://d2q8p4pe5spbak.cloudfront.net/bpk-tv/9XJalwa/9XJalwa.isml/index.m3u8",
+    "network": "9X Media",
+    "isHD": true
+  },
+  {
+    "id": "aastha-tv",
+    "name": "Aastha TV",
+    "category": "Devotional",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/1/1d/Aastha_Logo.png",
+    "streamUrl": "https://aasthaott.akamaized.net/110923/smil:aasthatv.smil/playlist.m3u8",
+    "network": "Aastha",
+    "isHD": true
+  },
+  {
+    "id": "sanskar-tv",
+    "name": "Sanskar TV",
+    "category": "Devotional",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/9/9e/Sanskar_TV_Logo.png",
+    "streamUrl": "https://d26idhjf0y1p2g.cloudfront.net/out/v1/cd66dd25b9774cb29943bab54bbf3e2f/index.m3u8",
+    "network": "Sanskar",
+    "isHD": true
+  },
+  {
+    "id": "satsang-tv",
+    "name": "Satsang TV",
+    "category": "Devotional",
+    "language": "Hindi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/9/9e/Sanskar_TV_Logo.png",
+    "streamUrl": "https://d26idhjf0y1p2g.cloudfront.net/out/v1/b3b2cab62f8c4f44b8f19e845c908c55/index.m3u8",
+    "network": "Sanskar",
+    "isHD": true
+  },
+  {
+    "id": "ptc-simran",
+    "name": "PTC Simran",
+    "category": "Devotional",
+    "language": "Punjabi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/a/a2/PTC_Punjabi_logo.png",
+    "streamUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/ptc-simran/master.m3u8",
+    "network": "PTC Network",
+    "isHD": true
+  },
+  {
+    "id": "puthiya-thalaimurai",
+    "name": "Puthiya Thalaimurai",
+    "category": "Regional",
+    "language": "Tamil",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/2/2c/Puthiya_Thalaimurai_logo.png",
+    "streamUrl": "https://segment.yuppcdn.net/240122/puthiya/playlist.m3u8",
+    "network": "Tamil News",
+    "isHD": true
+  },
+  {
+    "id": "thanthi-tv",
+    "name": "Thanthi TV",
+    "category": "Regional",
+    "language": "Tamil",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/6/6f/Thanthi_TV_logo.png",
+    "streamUrl": "https://segment.yuppcdn.net/110322/thanthitv/playlist.m3u8",
+    "network": "Tamil News",
+    "isHD": true
+  },
+  {
+    "id": "tv9-telugu",
+    "name": "TV9 Telugu",
+    "category": "Regional",
+    "language": "Telugu",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/c/c8/TV9_Bharatvarsh.png",
+    "streamUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9telcmjhcs/liveabr/playlist.m3u8",
+    "network": "TV9 Network",
+    "isHD": true
+  },
+  {
+    "id": "ntv-telugu",
+    "name": "NTV Telugu",
+    "category": "Regional",
+    "language": "Telugu",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/7/7d/NTV_Telugu_logo.png",
+    "streamUrl": "https://segment.yuppcdn.net/140622/ntv/playlist.m3u8",
+    "network": "NTV",
+    "isHD": true
+  },
+  {
+    "id": "v6-news-telugu",
+    "name": "V6 News",
+    "category": "Regional",
+    "language": "Telugu",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/c/c8/TV9_Bharatvarsh.png",
+    "streamUrl": "https://segment.yuppcdn.net/140622/v6news/playlist.m3u8",
+    "network": "VIL Media",
+    "isHD": true
+  },
+  {
+    "id": "asianet-news",
+    "name": "Asianet News",
+    "category": "Regional",
+    "language": "Malayalam",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/e/e0/Asianet_News_Logo.png",
+    "streamUrl": "https://vidcdn.vidgyor.com/asianet-origin/liveabr/playlist.m3u8",
+    "network": "Asianet",
+    "isHD": true
+  },
+  {
+    "id": "twentyfour-news",
+    "name": "24 News Malayalam",
+    "category": "Regional",
+    "language": "Malayalam",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/2/25/24_News_logo.png",
+    "streamUrl": "https://segment.yuppcdn.net/110322/channel24/playlist.m3u8",
+    "network": "24 News",
+    "isHD": true
+  },
+  {
+    "id": "tv9-kannada",
+    "name": "TV9 Kannada",
+    "category": "Regional",
+    "language": "Kannada",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/c/c8/TV9_Bharatvarsh.png",
+    "streamUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9kanmo698g/liveabr/playlist.m3u8",
+    "network": "TV9 Network",
+    "isHD": true
+  },
+  {
+    "id": "abp-ananda",
+    "name": "ABP Ananda",
+    "category": "Regional",
+    "language": "Bengali",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/ABP_News_logo.svg/512px-ABP_News_logo.svg.png",
+    "streamUrl": "https://abplivetv.pc.cdn.bitgravity.com/httppush/abp_livetv/abp_ananda/master.m3u8",
+    "network": "ABP Network",
+    "isHD": true
+  },
+  {
+    "id": "tv9-bangla",
+    "name": "TV9 Bangla",
+    "category": "Regional",
+    "language": "Bengali",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/c/c8/TV9_Bharatvarsh.png",
+    "streamUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9banjx696x/liveabr/playlist.m3u8",
+    "network": "TV9 Network",
+    "isHD": true
+  },
+  {
+    "id": "abp-majha",
+    "name": "ABP Majha",
+    "category": "Regional",
+    "language": "Marathi",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/ABP_News_logo.svg/512px-ABP_News_logo.svg.png",
+    "streamUrl": "https://abplivetv.pc.cdn.bitgravity.com/httppush/abp_livetv/abp_majha/master.m3u8",
+    "network": "ABP Network",
+    "isHD": true
+  },
+  {
+    "id": "tv9-marathi",
+    "name": "TV9 Marathi",
+    "category": "Regional",
+    "language": "Marathi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/c/c8/TV9_Bharatvarsh.png",
+    "streamUrl": "https://dyjmyiv3bp2ez.cloudfront.net/pub-iotv9marly598h/liveabr/playlist.m3u8",
+    "network": "TV9 Network",
+    "isHD": true
+  },
+  {
+    "id": "ptc-punjabi",
+    "name": "PTC Punjabi",
+    "category": "Regional",
+    "language": "Punjabi",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/a/a2/PTC_Punjabi_logo.png",
+    "streamUrl": "https://d35j504z0x2vu2.cloudfront.net/v1/master/0bc8e8376bd8417a1b6761138aa41c26c7309312/ptc-punjabi/master.m3u8",
+    "network": "PTC Network",
+    "isHD": true
+  },
+  {
+    "id": "abp-asmita",
+    "name": "ABP Asmita",
+    "category": "Regional",
+    "language": "Gujarati",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/ABP_News_logo.svg/512px-ABP_News_logo.svg.png",
+    "streamUrl": "https://abplivetv.pc.cdn.bitgravity.com/httppush/abp_livetv/abp_asmita/master.m3u8",
+    "network": "ABP Network",
+    "isHD": true
+  },
+  {
+    "id": "b4u-bhojpuri",
+    "name": "B4U Bhojpuri",
+    "category": "Regional",
+    "language": "Bhojpuri",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/3/3f/B4U_Movies_logo.svg/512px-B4U_Movies_logo.svg.png",
+    "streamUrl": "https://cdnb4u.wiseplayout.com/B4U_Bhojpuri/master.m3u8",
+    "network": "B4U Network",
+    "isHD": true
+  }
+]
