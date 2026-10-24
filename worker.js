@@ -1,16 +1,16 @@
 /**
- * Brinetv — Cloudflare Worker HLS (.m3u8 & .ts/.m4s) CORS Proxy
+ * Brinetv V6 — Smart Famelack/Cricfy-Style Cloudflare Worker HLS Proxy
+ * Deployed URL: https://brinetv-proxy.brinetube.workers.dev/
  *
- * Usage:
- *   https://brinetv-proxy.brinetube.workers.dev/?url=<encoded-stream-url>
- *
- * Features:
- * 1. Reads target stream URL from `?url=` query parameter.
- * 2. Adds `Access-Control-Allow-Origin: *` and handles OPTIONS preflight requests.
- * 3. Detects `.m3u8` master/media playlists and rewrites all relative & absolute
- *    segment URLs (.ts, .m4s, .aac), variant `.m3u8` URLs, and `URI="..."` attributes
- *    (such as #EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA) to route through this Worker proxy.
- * 4. Streams binary media segments (.ts, .m4s, .mp4) directly with Range header support.
+ * Key Capabilities:
+ * 1. Header Spoofing: Uses latest Chrome 131 User-Agent + Sec-Ch-Ua client hints,
+ *    and sets Referer & Origin to the target stream URL's domain (`parsedTarget.origin`).
+ * 2. Smart 403/404 Bypass: If the IPTV server returns 403 or 404 (blocking standard
+ *    proxy headers), automatically retries with stripped headers (removing X-Forwarded-For,
+ *    Origin, Referer) and alternate Mobile Chrome / OTT Player User-Agents.
+ * 3. Deep M3U8 Rewriting: Rewrites all relative & absolute child .m3u8 playlists,
+ *    .ts/.m4s segments, and URI="..." tags (#EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA)
+ *    to route through this Worker with `Access-Control-Allow-Origin: *`.
  */
 
 const CORS_HEADERS = {
@@ -19,6 +19,13 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Range, Origin, Accept, Content-Type, Authorization, X-Requested-With',
   'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Content-Type, Accept-Ranges',
 };
+
+const CHROME_DESKTOP_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const CHROME_MOBILE_UA =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36';
+const OTT_PLAYER_UA =
+  'ExoPlayerLib/2.19.1 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
  * Wraps an absolute target URL into a proxied Worker URL.
@@ -33,8 +40,7 @@ function toProxyUrl(workerOrigin, targetUrl, customReferer = '') {
 }
 
 /**
- * Rewrites all child playlist URLs, segment URLs, and URI="..." attributes inside an M3U8 manifest
- * so every subsequent request also flows through the Cloudflare Worker proxy.
+ * Rewrites all child playlist URLs, segment URLs, and URI="..." attributes inside an M3U8 manifest.
  */
 function rewriteM3u8Manifest(manifestText, baseStreamUrl, workerOrigin, customReferer = '') {
   const lines = manifestText.split(/\r?\n/);
@@ -43,7 +49,7 @@ function rewriteM3u8Manifest(manifestText, baseStreamUrl, workerOrigin, customRe
     const line = rawLine.trim();
     if (!line) return rawLine;
 
-    // 1. Handle HLS tags that contain URI="..." (e.g. #EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA)
+    // 1. Rewrite URI="..." inside #EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA, etc.
     if (line.startsWith('#')) {
       if (line.includes('URI="')) {
         return rawLine.replace(/URI="([^"]+)"/gi, (_match, uriValue) => {
@@ -58,7 +64,7 @@ function rewriteM3u8Manifest(manifestText, baseStreamUrl, workerOrigin, customRe
       return rawLine;
     }
 
-    // 2. Non-comment lines are segment URLs (.ts, .m4s, .aac) or variant .m3u8 playlists
+    // 2. Rewrite non-comment lines (variant .m3u8 playlists or .ts/.m4s/.aac segments)
     try {
       const absoluteSegmentUrl = new URL(line, baseStreamUrl).href;
       return toProxyUrl(workerOrigin, absoluteSegmentUrl, customReferer);
@@ -70,9 +76,84 @@ function rewriteM3u8Manifest(manifestText, baseStreamUrl, workerOrigin, customRe
   return rewrittenLines.join('\n');
 }
 
+/**
+ * Builds clean upstream headers for each retry profile, ensuring X-Forwarded-For
+ * and proxy-leaking headers are never sent.
+ */
+function buildSpoofedHeaders(parsedTarget, rangeHeader, customReferer, profileIndex = 0) {
+  const targetOrigin = customReferer ? new URL(customReferer).origin : parsedTarget.origin;
+  const targetReferer = customReferer || `${parsedTarget.origin}/`;
+
+  const headers = new Headers();
+
+  if (profileIndex === 0) {
+    // Profile 0: Latest Chrome 131 Desktop + Target Domain Referer & Origin
+    headers.set('User-Agent', CHROME_DESKTOP_UA);
+    headers.set('Accept', '*/*');
+    headers.set('Accept-Language', 'en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7,hi;q=0.6');
+    headers.set('Referer', targetReferer);
+    headers.set('Origin', targetOrigin);
+    headers.set('Sec-Ch-Ua', '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"');
+    headers.set('Sec-Ch-Ua-Mobile', '?0');
+    headers.set('Sec-Ch-Ua-Platform', '"Windows"');
+    headers.set('Sec-Fetch-Dest', 'empty');
+    headers.set('Sec-Fetch-Mode', 'cors');
+    headers.set('Sec-Fetch-Site', 'same-site');
+  } else if (profileIndex === 1) {
+    // Profile 1 (403/404 Bypass): Strip Origin & X-Forwarded-For, keep only Referer + Mobile Chrome UA
+    headers.set('User-Agent', CHROME_MOBILE_UA);
+    headers.set('Accept', 'application/vnd.apple.mpegurl, application/x-mpegURL, video/mp2t, */*');
+    headers.set('Accept-Language', 'en-IN,en;q=0.9');
+    headers.set('Referer', targetReferer);
+  } else {
+    // Profile 2 (403/404 Deep Bypass): Strip Origin, Referer, and X-Forwarded-For completely; use OTT Player UA
+    headers.set('User-Agent', OTT_PLAYER_UA);
+    headers.set('Accept', '*/*');
+    headers.set('Connection', 'keep-alive');
+  }
+
+  // Ensure X-Forwarded-For / CF headers are explicitly absent
+  headers.delete('X-Forwarded-For');
+  headers.delete('X-Real-IP');
+  headers.delete('CF-Connecting-IP');
+
+  if (rangeHeader) {
+    headers.set('Range', rangeHeader);
+  }
+
+  return headers;
+}
+
+/**
+ * Fetches upstream URL with automatic 403/404 bypass retries across 3 header profiles.
+ */
+async function fetchWithSmartBypass(targetHref, method, rangeHeader, customReferer) {
+  const parsedTarget = new URL(targetHref);
+  let lastResponse = null;
+
+  for (let profile = 0; profile < 3; profile++) {
+    const upstreamHeaders = buildSpoofedHeaders(parsedTarget, rangeHeader, customReferer, profile);
+
+    const response = await fetch(parsedTarget.href, {
+      method,
+      headers: upstreamHeaders,
+      redirect: 'follow',
+    });
+
+    lastResponse = response;
+
+    // If upstream succeeded (not 403/404/401), return immediately
+    if (response.status !== 403 && response.status !== 404 && response.status !== 401) {
+      return response;
+    }
+  }
+
+  return lastResponse;
+}
+
 export default {
   async fetch(request) {
-    // 1. Handle CORS Preflight (OPTIONS)
+    // 1. Handle CORS Preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -89,7 +170,7 @@ export default {
       return new Response(
         JSON.stringify({
           status: 'ok',
-          service: 'Brinetv Cloudflare Worker CORS Proxy',
+          service: 'Brinetv V6 Smart Cloudflare Worker Proxy',
           usage: `${workerOrigin}/?url=<encoded-m3u8-or-ts-url>`,
         }),
         {
@@ -115,28 +196,16 @@ export default {
       });
     }
 
-    // 2. Build upstream request headers (forward Range and spoof standard browser headers)
-    const upstreamHeaders = new Headers();
-    upstreamHeaders.set(
-      'User-Agent',
-      request.headers.get('User-Agent') ||
-        'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
-    );
-    upstreamHeaders.set('Accept', '*/*');
-    upstreamHeaders.set('Referer', customReferer || `${parsedTarget.origin}/`);
-    upstreamHeaders.set('Origin', customReferer ? new URL(customReferer).origin : parsedTarget.origin);
-
-    const rangeHeader = request.headers.get('Range');
-    if (rangeHeader) {
-      upstreamHeaders.set('Range', rangeHeader);
-    }
+    const rangeHeader = request.headers.get('Range') || '';
+    const method = request.method === 'HEAD' ? 'HEAD' : 'GET';
 
     try {
-      const upstreamResponse = await fetch(parsedTarget.href, {
-        method: request.method === 'HEAD' ? 'HEAD' : 'GET',
-        headers: upstreamHeaders,
-        redirect: 'follow',
-      });
+      const upstreamResponse = await fetchWithSmartBypass(
+        parsedTarget.href,
+        method,
+        rangeHeader,
+        customReferer
+      );
 
       const finalUpstreamUrl = upstreamResponse.url || parsedTarget.href;
       const contentType = (upstreamResponse.headers.get('Content-Type') || '').toLowerCase();
@@ -147,8 +216,8 @@ export default {
         /\.m3u8(\?.*)?$/i.test(finalUpstreamUrl) ||
         /\.m3u8(\?.*)?$/i.test(parsedTarget.pathname);
 
-      // 3. If response is an .m3u8 playlist, rewrite all internal segment & variant URLs
-      if (isM3u8 && request.method !== 'HEAD' && upstreamResponse.ok) {
+      // 2. Rewrite .m3u8 playlists so all internal segments & child playlists also route via Worker
+      if (isM3u8 && method !== 'HEAD' && upstreamResponse.ok) {
         const rawText = await upstreamResponse.text();
         if (rawText.trimStart().startsWith('#EXTM3U')) {
           const rewrittenPlaylist = rewriteM3u8Manifest(
@@ -168,7 +237,6 @@ export default {
           });
         }
 
-        // Fallback if text wasn't an M3U8 manifest
         return new Response(rawText, {
           status: upstreamResponse.status,
           headers: {
@@ -178,16 +246,15 @@ export default {
         });
       }
 
-      // 4. For binary media segments (.ts, .m4s, .mp4, .aac), stream body directly with CORS headers
+      // 3. Stream binary segments (.ts, .m4s, .mp4, .aac) directly
       const responseHeaders = new Headers(CORS_HEADERS);
-      const passthroughHeaders = [
+      [
         'Content-Type',
         'Content-Length',
         'Content-Range',
         'Accept-Ranges',
         'Cache-Control',
-      ];
-      passthroughHeaders.forEach((headerName) => {
+      ].forEach((headerName) => {
         const val = upstreamResponse.headers.get(headerName);
         if (val) responseHeaders.set(headerName, val);
       });

@@ -14,6 +14,7 @@ import {
   Radio,
   Loader2,
   ShieldCheck,
+  Zap,
 } from 'lucide-react';
 import QualitySelector, {
   STANDARD_QUALITY_TIERS,
@@ -22,13 +23,13 @@ import QualitySelector, {
 import { getChannelInitials } from '../utils/m3uParser';
 
 /**
- * Exact Cloudflare Worker Proxy Base URL (with 'e' in brinetube).
+ * Exact Cloudflare Worker Proxy Base URL.
  */
 export const CORS_PROXY_BASE_URL = 'https://brinetv-proxy.brinetube.workers.dev';
 
-// Direct attempt timeout before auto-switching to proxy (4 seconds), and proxy timeout (8 seconds)
-const DIRECT_TIMEOUT_MS = 4000;
+const DIRECT_TIMEOUT_MS = 4500;
 const PROXY_TIMEOUT_MS = 8000;
+const FORCED_DIRECT_TIMEOUT_MS = 10000;
 
 /**
  * Encodes an original stream URL into the Cloudflare Worker Proxy URL format:
@@ -46,22 +47,21 @@ export function buildProxyStreamUrl(originalStreamUrl) {
 /**
  * Resolves any relative or un-proxied segment/playlist URL requested by hls.js
  * when playing through the Cloudflare Worker proxy.
- * Even if the Worker returns an .m3u8 with relative paths (e.g. "chunk_720p.m3u8" or "seg1.ts"),
- * hls.js resolves them against the Worker domain (`https://brinetv-proxy.brinetube.workers.dev/...`).
- * This helper reconstructs the true upstream CDN URL and wraps it with `/?url=`.
  */
 export function resolveProxiedRequestUrl(requestedUrl, currentUpstreamBaseUrl) {
   if (!requestedUrl) return requestedUrl;
 
-  // Case 1: Already properly formatted with ?url=
-  if (requestedUrl.startsWith(`${CORS_PROXY_BASE_URL}/?url=`) || requestedUrl.startsWith(`${CORS_PROXY_BASE_URL}?url=`)) {
+  if (
+    requestedUrl.startsWith(`${CORS_PROXY_BASE_URL}/?url=`) ||
+    requestedUrl.startsWith(`${CORS_PROXY_BASE_URL}?url=`)
+  ) {
     return requestedUrl;
   }
 
-  // Case 2: hls.js resolved a relative path inside .m3u8 against the Worker domain
-  // e.g. https://brinetv-proxy.brinetube.workers.dev/live_720p/chunks.m3u8
   if (requestedUrl.startsWith(CORS_PROXY_BASE_URL)) {
-    const relativePathWithQuery = requestedUrl.slice(CORS_PROXY_BASE_URL.length).replace(/^\/+/, '');
+    const relativePathWithQuery = requestedUrl
+      .slice(CORS_PROXY_BASE_URL.length)
+      .replace(/^\/+/, '');
     try {
       const realUpstreamUrl = new URL(relativePathWithQuery, currentUpstreamBaseUrl).href;
       return buildProxyStreamUrl(realUpstreamUrl);
@@ -70,12 +70,10 @@ export function resolveProxiedRequestUrl(requestedUrl, currentUpstreamBaseUrl) {
     }
   }
 
-  // Case 3: Absolute external http/https URL inside .m3u8 that wasn't wrapped yet
   if (/^https?:\/\//i.test(requestedUrl)) {
     return buildProxyStreamUrl(requestedUrl);
   }
 
-  // Case 4: Plain relative URL
   try {
     const realUpstreamUrl = new URL(requestedUrl, currentUpstreamBaseUrl).href;
     return buildProxyStreamUrl(realUpstreamUrl);
@@ -85,17 +83,16 @@ export function resolveProxiedRequestUrl(requestedUrl, currentUpstreamBaseUrl) {
 }
 
 /**
- * Brinetv Live Video Player Component (V5 — Strong Direct -> Proxy Auto-Fallback).
+ * Brinetv Live Video Player Component (V6).
  *
- * Flow:
- * 1. Pehle direct stream load karne ki koshish karta hai (`stage = 'direct'`).
- * 2. Agar direct stream par CORS/network error aaye (fatal ya non-fatal) ya 4 second ke andar
- *    stream start na ho, toh turant automatically Cloudflare Worker Proxy URL
- *    (`https://brinetv-proxy.brinetube.workers.dev/?url=${encodeURIComponent(originalStreamUrl)}`)
- *    ke through `hls.loadSource(proxyUrl)` run karta hai (`stage = 'proxy'`).
- * 3. Proxy mode mein `xhrSetup` har child `.m3u8` aur `.ts` segment ko bhi proxy ke through route karta hai.
- * 4. Agar proxy ke through bhi stream na chale, toh screen par dikhata hai:
- *    'Channel is offline or source is blocked.'
+ * Key Features:
+ * 1. Smart Direct -> Proxy Fallback: Tries direct stream first; if CORS/network error occurs,
+ *    automatically retries through https://brinetv-proxy.brinetube.workers.dev/?url=...
+ * 2. 'Try Direct Stream' Fallback Button: If the Worker proxy is blocked by an IPTV server's
+ *    Cloudflare IP filter, the user gets a 'Try Direct Stream' button to bypass the Worker.
+ * 3. Smooth Quality Switching: Extracts all available qualities (144p..1080p) from `hls.levels`
+ *    on both MANIFEST_PARSED and LEVEL_LOADED, and uses `hls.nextLevel` / `hls.loadLevel` for
+ *    smooth, buffer-safe resolution switching.
  */
 export default function Player({
   channel,
@@ -116,10 +113,10 @@ export default function Player({
   const [errorState, setErrorState] = useState(null);
   const [logoError, setLogoError] = useState(false);
 
-  // 'direct' | 'proxy'
+  // 'direct' | 'proxy' | 'forced-direct'
   const [streamStage, setStreamStage] = useState('direct');
-  // Optional manual override if user clicks the Proxy badge
-  const [forceProxyOverride, setForceProxyOverride] = useState(null);
+  // null = auto (Direct -> Proxy fallback), 'direct' = Try Direct Stream, 'proxy' = Force Proxy
+  const [manualMode, setManualMode] = useState(null);
 
   const [availableQualities, setAvailableQualities] = useState([]);
   const [selectedQuality, setSelectedQuality] = useState('Auto');
@@ -137,11 +134,11 @@ export default function Player({
 
   useEffect(() => {
     setLogoError(false);
-    setForceProxyOverride(null);
+    setManualMode(null);
   }, [channel?.id, channel?.logo]);
 
   /**
-   * Maps hls.levels into ordered buttons (144p, 240p, 360p, 480p, 720p, 1080p).
+   * Extracts available qualities (144p..1080p) from `hls.levels`.
    */
   const extractAvailableQualities = useCallback((levels = []) => {
     if (!Array.isArray(levels) || levels.length === 0) return [];
@@ -174,8 +171,30 @@ export default function Player({
   }, []);
 
   /**
-   * Unified Direct -> Proxy Stream Loader Effect.
-   * Eliminates state race conditions by controlling both stages inside one effect lifecycle.
+   * Syncs `hls.levels` into state (called on MANIFEST_PARSED and LEVEL_LOADED).
+   */
+  const syncQualitiesFromHls = useCallback(
+    (hlsInstance) => {
+      if (!hlsInstance || !Array.isArray(hlsInstance.levels)) return;
+      const levels = hlsInstance.levels;
+      const qualities = extractAvailableQualities(levels);
+      setAvailableQualities(qualities);
+
+      if (qualities.length <= 1) {
+        setIsSingleOrLowQuality(true);
+        if (qualities.length === 1) {
+          setActiveAutoLabel(qualities[0].label);
+        }
+      } else {
+        const maxHeight = Math.max(...levels.map((l) => Number(l.height) || 0));
+        setIsSingleOrLowQuality(maxHeight > 0 && maxHeight <= 360);
+      }
+    },
+    [extractAvailableQualities]
+  );
+
+  /**
+   * Unified Stream Loader Effect.
    */
   useEffect(() => {
     const video = videoRef.current;
@@ -192,14 +211,13 @@ export default function Player({
       }
     };
 
-    /**
-     * Starts loading the stream either in 'direct' stage or 'proxy' stage.
-     */
     const startStage = (stage) => {
       if (isCancelled) return;
       cleanupHls();
 
       const isProxyStage = stage === 'proxy';
+      const isForcedDirect = stage === 'forced-direct';
+
       setStreamStage(stage);
       setErrorState(null);
       setIsBuffering(true);
@@ -210,13 +228,11 @@ export default function Player({
       setIsSwitchingLevel(false);
       setIsSingleOrLowQuality(false);
 
-      // Build source URL: direct URL first, or Cloudflare Worker Proxy URL on fallback
       const sourceUrlToLoad = isProxyStage
         ? buildProxyStreamUrl(originalStreamUrl)
         : originalStreamUrl;
 
       let stageHasSucceeded = false;
-      // Track active upstream URL so relative child .m3u8 & .ts segments resolve accurately
       let activeUpstreamBaseUrl = originalStreamUrl;
 
       const markStageSuccess = () => {
@@ -230,13 +246,13 @@ export default function Player({
         if (isCancelled) return;
         cleanupHls();
 
-        if (!isProxyStage) {
-          // Direct stream failed or timed out -> Immediately switch to Cloudflare Worker Proxy!
+        // If auto-mode Direct stage failed, automatically try Cloudflare Worker Proxy
+        if (stage === 'direct') {
           startStage('proxy');
           return;
         }
 
-        // Proxy attempt also failed -> Show final error message
+        // If Proxy (or Forced Direct) failed, show error state with 'Try Direct Stream' option
         video.removeAttribute('src');
         video.load();
         setIsBuffering(false);
@@ -244,8 +260,12 @@ export default function Player({
         setErrorState('Channel is offline or source is blocked.');
       };
 
-      // Stage watchdog timer (4s for Direct -> auto proxy switch; 8s for Proxy -> offline error)
-      const timeoutDuration = isProxyStage ? PROXY_TIMEOUT_MS : DIRECT_TIMEOUT_MS;
+      const timeoutDuration = isProxyStage
+        ? PROXY_TIMEOUT_MS
+        : isForcedDirect
+        ? FORCED_DIRECT_TIMEOUT_MS
+        : DIRECT_TIMEOUT_MS;
+
       stageTimeoutRef.current = setTimeout(() => {
         if (!stageHasSucceeded && !isCancelled) {
           handleStageFailure();
@@ -282,18 +302,17 @@ export default function Player({
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          startLevel: -1, // Auto resolution by default
+          startLevel: -1,
           capLevelToPlayerSize: true,
-          manifestLoadingTimeOut: isProxyStage ? 7000 : 3500,
-          manifestLoadingMaxRetry: isProxyStage ? 1 : 0,
-          levelLoadingTimeOut: isProxyStage ? 7000 : 3500,
-          levelLoadingMaxRetry: isProxyStage ? 1 : 0,
-          fragLoadingTimeOut: isProxyStage ? 7000 : 3500,
-          fragLoadingMaxRetry: isProxyStage ? 1 : 0,
+          manifestLoadingTimeOut: isProxyStage ? 7000 : isForcedDirect ? 8000 : 3500,
+          manifestLoadingMaxRetry: isProxyStage || isForcedDirect ? 1 : 0,
+          levelLoadingTimeOut: isProxyStage ? 7000 : isForcedDirect ? 8000 : 3500,
+          levelLoadingMaxRetry: isProxyStage || isForcedDirect ? 1 : 0,
+          fragLoadingTimeOut: isProxyStage ? 7000 : isForcedDirect ? 8000 : 3500,
+          fragLoadingMaxRetry: isProxyStage || isForcedDirect ? 1 : 0,
           xhrSetup: (xhr, url) => {
             if (!isProxyStage) return;
             const proxiedUrl = resolveProxiedRequestUrl(url, activeUpstreamBaseUrl);
-            // If this request is for a child .m3u8 playlist, update activeUpstreamBaseUrl
             try {
               const parsedProxy = new URL(proxiedUrl);
               const innerUrl = parsedProxy.searchParams.get('url');
@@ -310,26 +329,12 @@ export default function Player({
         });
         hlsRef.current = hls;
 
-        // Pass sourceUrlToLoad (Direct URL on stage 1, Proxy URL on stage 2) to hls.loadSource
         hls.loadSource(sourceUrlToLoad);
         hls.attachMedia(video);
 
-        hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
           if (isCancelled) return;
-          const levels = hls.levels || data?.levels || [];
-          const qualities = extractAvailableQualities(levels);
-          setAvailableQualities(qualities);
-          setSelectedQuality('Auto');
-
-          if (qualities.length <= 1) {
-            setIsSingleOrLowQuality(true);
-            if (qualities.length === 1) {
-              setActiveAutoLabel(qualities[0].label);
-            }
-          } else {
-            const maxHeight = Math.max(...levels.map((l) => Number(l.height) || 0));
-            setIsSingleOrLowQuality(maxHeight > 0 && maxHeight <= 360);
-          }
+          syncQualitiesFromHls(hls);
 
           video
             .play()
@@ -350,10 +355,15 @@ export default function Player({
             });
         });
 
+        // Re-sync levels on LEVEL_LOADED in case variant resolution metadata was populated late
+        hls.on(Hls.Events.LEVEL_LOADED, () => {
+          if (isCancelled) return;
+          syncQualitiesFromHls(hls);
+        });
+
         hls.on(Hls.Events.LEVEL_SWITCHING, () => {
           if (isCancelled) return;
           setIsSwitchingLevel(true);
-          setIsBuffering(true);
         });
 
         hls.on(Hls.Events.LEVEL_SWITCHED, (_event, data) => {
@@ -369,14 +379,13 @@ export default function Player({
 
         hls.on(Hls.Events.FRAG_LOADED, () => {
           markStageSuccess();
+          setIsSwitchingLevel(false);
         });
 
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (isCancelled) return;
 
-          // In Direct stage, ANY network/CORS error (even if data.fatal is false initially)
-          // should immediately trigger the Cloudflare Worker Proxy fallback!
-          if (!isProxyStage && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          if (stage === 'direct' && data.type === Hls.ErrorTypes.NETWORK_ERROR) {
             handleStageFailure();
             return;
           }
@@ -389,9 +398,9 @@ export default function Player({
             ) {
               setIsSwitchingLevel(false);
               setIsBuffering(false);
+              hls.nextLevel = -1;
               hls.currentLevel = -1;
               setSelectedQuality('Auto');
-              setIsSingleOrLowQuality(true);
             }
             return;
           }
@@ -399,7 +408,6 @@ export default function Player({
           handleStageFailure();
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari / iOS native HLS fallback
         setIsSingleOrLowQuality(true);
         video.src = sourceUrlToLoad;
         const onLoadedMeta = () => {
@@ -412,9 +420,13 @@ export default function Player({
       }
     };
 
-    // Start with Direct stream unless user manually toggled Proxy override
-    const initialStage = forceProxyOverride === true ? 'proxy' : 'direct';
-    startStage(initialStage);
+    if (manualMode === 'direct') {
+      startStage('forced-direct');
+    } else if (manualMode === 'proxy') {
+      startStage('proxy');
+    } else {
+      startStage('direct');
+    }
 
     return () => {
       isCancelled = true;
@@ -423,12 +435,16 @@ export default function Player({
   }, [
     channel?.id,
     channel?.streamUrl,
-    forceProxyOverride,
+    manualMode,
     reloadNonce,
-    extractAvailableQualities,
+    syncQualitiesFromHls,
     clearStageTimeout,
   ]);
 
+  /**
+   * Smooth Quality Switcher using `hls.nextLevel` & `hls.loadLevel`
+   * so resolution transitions happen cleanly without black-screen drops.
+   */
   const handleSelectQuality = useCallback((qualityLabel, levelIndex) => {
     const hls = hlsRef.current;
     if (!hls) return;
@@ -436,31 +452,44 @@ export default function Player({
     if (qualityLabel === 'Auto' || levelIndex === -1) {
       setSelectedQuality('Auto');
       setIsSwitchingLevel(true);
-      setIsBuffering(true);
-      hls.currentLevel = -1;
+      hls.nextLevel = -1;
+      hls.loadLevel = -1;
       setTimeout(() => {
         setIsSwitchingLevel(false);
-        setIsBuffering(false);
-      }, 400);
+      }, 350);
       return;
     }
 
     setSelectedQuality(qualityLabel);
+    setActiveAutoLabel(qualityLabel);
     setIsSwitchingLevel(true);
-    setIsBuffering(true);
+
     try {
-      hls.currentLevel = levelIndex;
+      // Smooth switch at next segment boundary via nextLevel + loadLevel
+      hls.nextLevel = levelIndex;
+      hls.loadLevel = levelIndex;
     } catch (_err) {
-      hls.currentLevel = -1;
+      hls.nextLevel = -1;
       setSelectedQuality('Auto');
       setIsSwitchingLevel(false);
-      setIsBuffering(false);
     }
   }, []);
 
-  const handleManualRetry = () => {
+  /**
+   * Switches immediately to Direct Stream (bypassing Cloudflare Worker IP blocks).
+   */
+  const handleTryDirectStream = () => {
     setErrorState(null);
-    setForceProxyOverride(true); // On manual retry after failure, try directly with Proxy
+    setManualMode('direct');
+    setReloadNonce((n) => n + 1);
+  };
+
+  /**
+   * Retries via Cloudflare Worker Proxy.
+   */
+  const handleRetryProxy = () => {
+    setErrorState(null);
+    setManualMode('proxy');
     setReloadNonce((n) => n + 1);
   };
 
@@ -549,27 +578,28 @@ export default function Player({
                 LIVE
               </span>
 
-              {/* Clickable Direct / Proxy Status Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  setForceProxyOverride(isUsingProxy ? false : true);
-                  setReloadNonce((n) => n + 1);
-                }}
-                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border transition-colors shrink-0 ${
-                  isUsingProxy
-                    ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                    : 'bg-slate-800/80 text-slate-400 border-slate-700/80 hover:text-slate-200'
-                }`}
-                title={
-                  isUsingProxy
-                    ? 'Playing via Cloudflare Worker Proxy (click to try Direct)'
-                    : 'Playing Direct stream (click to force Cloudflare Proxy)'
-                }
-              >
-                <ShieldCheck className={`w-3 h-3 ${isUsingProxy ? 'text-cyan-400' : 'text-slate-400'}`} />
-                <span>{isUsingProxy ? 'Proxy' : 'Direct'}</span>
-              </button>
+              {/* Mode Status Pill & Quick 'Try Direct Stream' Switcher */}
+              {isUsingProxy ? (
+                <button
+                  type="button"
+                  onClick={handleTryDirectStream}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-cyan-500/15 hover:bg-emerald-500/20 text-cyan-300 hover:text-emerald-300 border border-cyan-500/30 transition-colors shrink-0"
+                  title="Currently using Proxy. Click to Try Direct Stream."
+                >
+                  <ShieldCheck className="w-3 h-3 text-cyan-400" />
+                  <span>Proxy · Try Direct Stream</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRetryProxy}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/15 hover:bg-cyan-500/20 text-emerald-300 hover:text-cyan-300 border border-emerald-500/30 transition-colors shrink-0"
+                  title="Currently playing Direct stream. Click to switch to Proxy."
+                >
+                  <Zap className="w-3 h-3 text-emerald-400" />
+                  <span>Direct</span>
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[11px] text-slate-400">{channel.category}</span>
@@ -615,8 +645,8 @@ export default function Player({
           onWaiting={() => setIsBuffering(true)}
           onError={() => {
             clearStageTimeout();
-            if (!isUsingProxy) {
-              setForceProxyOverride(true);
+            if (streamStage === 'direct') {
+              setManualMode('proxy');
               setReloadNonce((n) => n + 1);
             } else {
               setIsBuffering(false);
@@ -626,7 +656,7 @@ export default function Player({
           }}
         />
 
-        {/* Buffering Spinner (on initial load, proxy fallback & quality switch) */}
+        {/* Buffering Spinner */}
         {(isBuffering || isSwitchingLevel) && !errorState && (
           <div className="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-2 pointer-events-none z-10">
             <Loader2 className="w-8 h-8 text-orange-400 animate-spin" />
@@ -634,13 +664,13 @@ export default function Player({
               {isSwitchingLevel
                 ? 'Switching quality...'
                 : isUsingProxy
-                ? 'Loading via Cloudflare Proxy...'
-                : 'Loading stream...'}
+                ? 'Loading via Smart Proxy...'
+                : 'Loading direct stream...'}
             </span>
           </div>
         )}
 
-        {/* Final Error Overlay when both Direct & Proxy fail */}
+        {/* Error Overlay with 'Try Direct Stream' Fallback Button */}
         {errorState && (
           <div className="absolute inset-0 bg-[#090B10]/95 flex flex-col items-center justify-center p-4 text-center z-20">
             <div className="w-11 h-11 rounded-2xl bg-red-500/15 border border-red-500/30 flex items-center justify-center mb-2.5">
@@ -649,15 +679,26 @@ export default function Player({
             <p className="text-sm sm:text-base font-bold text-white max-w-md">
               Channel is offline or source is blocked.
             </p>
-            <div className="flex items-center justify-center gap-2 mt-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+              {/* Prominent 'Try Direct Stream' Button when Worker fails */}
               <button
                 type="button"
-                onClick={handleManualRetry}
+                onClick={handleTryDirectStream}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-sm"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Try Direct Stream</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRetryProxy}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Retry</span>
               </button>
+
               {onSelectNextChannel && (
                 <button
                   type="button"
